@@ -313,7 +313,7 @@ function create_synth_window()
 
     write(string(now(), ".txt"), output)
 
-    main_synthesizer_withDurations(string("history_", now(), ".txt"), reproduction_speed)
+    main_synthesizer_withDurations(string("output.txt"), reproduction_speed)
   end
 
   function on_import_button_press(_)
@@ -450,6 +450,7 @@ function create_transcriber_window()
   nsample = 0 # Count number of samples recorded
   song = Float32[] # Initialize "song" as an empty array
 
+  timer_label = styled(GtkLabel("0:00"), "header")
   record_button = styled(GtkButton("Record"), "export-button")
   stop_button = styled(GtkButton("Stop"), "export-button")
   play_button = styled(GtkButton("Play"), "export-button")
@@ -511,6 +512,8 @@ function create_transcriber_window()
   end
 
   function call_record(w)
+    global recording = true
+
     # Threads.@spawn begin
     global nsample = 0 # Count number of samples recorded
     global song = Float32[] # Initialize "song" as an empty array
@@ -519,15 +522,42 @@ function create_transcriber_window()
     delete!(play_hbox, play_button)
     delete!(play_hbox, export_button)
     push!(play_hbox, stop_button)
+    push!(play_hbox, timer_label)
     showall(win)
+
     # end
     Threads.@spawn begin
       in_stream = PortAudioStream(1, 0) # Default input device
       buf = read(in_stream, N) # Warm-up
-      global recording = true
       global song = zeros(Float32, maxtime * S)
       @async record_loop!(in_stream, buf)
     end
+
+    Threads.@spawn begin
+      while recording == true
+        sleep(1)
+        # println("asjdflkajflkasdjfsalkaskjfd")
+        curr_time = get_gtk_property(timer_label, :label, String)
+        # println(curr_time)
+        curr_time = split(curr_time, ":")
+        minutes = parse(Int, curr_time[1])
+        seconds = parse(Int, curr_time[2])
+        seconds += 1
+        if seconds == 60
+          minutes += 1
+          seconds = 0
+        end
+        new_time = string(minutes, ":", lpad(seconds, 2, "0"))
+
+        Gtk.GLib.g_idle_add() do
+          set_gtk_property!(timer_label, :label, new_time)
+          showall(win)
+          Cint(false)
+        end
+      end
+    end
+
+
   end
 
   function call_stop(w)
