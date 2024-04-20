@@ -193,7 +193,7 @@ function create_synth_window(from_transcriber)
             (col == 2) ?
             NUM_COLS :
             col - 1
-          ) : max(2, col - 1)
+          ) : max(1, col - 1)
 
           Gtk.grab_focus(tablature[new_col, row])
 
@@ -565,6 +565,7 @@ function create_transcriber_window()
     # Threads.@spawn begin
     global nsample = 0 # Count number of samples recorded
     global song = Float32[] # Initialize "song" as an empty array
+    set_gtk_property!(timer_label, :label, "0:00")
 
     delete!(play_hbox, record_button)
     delete!(play_hbox, play_recorded_button)
