@@ -53,6 +53,9 @@ styles = GtkCssProvider(data="
   }
   #header-box {
   }
+  #grid {
+    padding: 20px;
+  }
 ")
 
 mutable struct MyState
@@ -88,14 +91,21 @@ function create_main_window()
   vbox_main = GtkBox(:v)
   image = GtkImage("logo2.png")
 
-  transcriber = GtkButton("Transcriber")
-  synthesizer = GtkButton("Synthesizer")
+  transcriber = styled(GtkButton("Transcriber"), "export-button")
+  synthesizer = styled(GtkButton("Synthesizer"), "export-button")
   hbox_main = GtkBox(:h)
+  g_main = GtkGrid()
+  set_gtk_property!(g_main, :row_spacing, 5)
+  set_gtk_property!(g_main, :column_spacing, 5)
+  set_gtk_property!(g_main, :row_homogeneous, true)
+  set_gtk_property!(g_main, :column_homogeneous, true)
+  g_main[1, 1] = transcriber
+  g_main[2, 1] = synthesizer
   # set_gtk_property!(hbox_main, :spacing, 10)
   push!(vbox_main, image)
-  push!(hbox_main, transcriber)
-  push!(hbox_main, synthesizer)
-  push!(vbox_main, hbox_main)
+  # push!(hbox_main, transcriber)
+  # push!(hbox_main, synthesizer)
+  push!(vbox_main, g_main)
   push!(win, vbox_main)
   showall(win)
 
@@ -105,12 +115,12 @@ function create_main_window()
   end
 
   signal_connect(synthesizer, "clicked") do _
-    create_synth_window()
+    create_synth_window(false)
     Gtk.destroy(win)
   end
 end
 
-function create_synth_window()
+function create_synth_window(from_transcriber)
 
   playing = false
   reproduction_speed = 1
@@ -128,6 +138,7 @@ function create_synth_window()
   tablature = styled(GtkGrid(), "grid")
   note_labels = styled(GtkGrid(), "grid")
   sidebar = styled(GtkBox(:v), "sidebar")
+  tab_scroll = styled(GtkScrolledWindow(), "scroll-window")
   # history_scroll = styled(GtkScrolledWindow(), "scroll-window")
   # history_list = GtkListStore
 
@@ -273,8 +284,14 @@ function create_synth_window()
   end
 
   function on_back_button_press(_)
-    create_main_window()
-    Gtk.destroy(synth_win)
+
+    if (from_transcriber)
+      create_transcriber_window()
+      Gtk.destroy(synth_win)
+    else
+      create_main_window()
+      Gtk.destroy(synth_win)
+    end
   end
 
   function on_clear_button_press(_)
@@ -311,9 +328,12 @@ function create_synth_window()
       output = string(output, text, " ")
     end
 
-    write(string(now(), ".txt"), output)
+    write(string("output.txt"), output)
 
+    # Threads.@spawn begin
     main_synthesizer_withDurations(string("output.txt"), reproduction_speed)
+    # end
+
   end
 
   function on_import_button_press(_)
@@ -328,22 +348,6 @@ function create_synth_window()
       for i in range(1, line_length)
         for j in range(1, NUM_ROWS)
           char = lines[j][i]
-          # if (char == "s")
-          #   is_s_row = true
-          #   print(i, " ", j, " ", last_non_s, "\n")
-          #   tempo_button = tablature[last_non_s+1, NUM_ROWS+1]
-          #   curr_tempo = get_gtk_property(tempo_button, :label, String)
-          #   set_gtk_property!(tempo_button, :label, string(parse(Int, curr_tempo) + 1))
-          #   break
-          # else
-          # if (char == 's')
-          #   # print("is s\n")
-          #   last_non_s_col = last_non_s_col - 1
-          #   tempo_button = tablature[last_non_s_col+1, NUM_ROWS+1]
-          #   curr_tempo = get_gtk_property(tempo_button, :label, String)
-          #   set_gtk_property!(tempo_button, :label, string(parse(Int, curr_tempo) + 1))
-          #   break
-          # else
           if (char != "-")
             entry = tablature[last_non_s_col, j]
             async_set(entry, string(char))
@@ -391,8 +395,45 @@ function create_synth_window()
   header_box = GtkBox(:h)
   buttons_vbox = GtkBox(:v)
   entire_hbox = GtkBox(:h)
-  tab_scroll = styled(GtkScrolledWindow(), "scroll-window")
 
+  if (from_transcriber)
+    file = "guitar_tab_Concise.txt"
+
+    # for i in range(1, NUM_ROWS)
+    #   for j in range(1, NUM_COLS)
+    #     entry = tablature[j, i]
+    #     async_set(entry, "")
+    #   end
+    # end
+    # for i in range(1, NUM_COLS)
+    #   tempo_button = tablature[i, NUM_ROWS+1]
+    #   set_gtk_property!(tempo_button, :label, "1")
+    # end
+
+    if file != ""
+      lines = readlines(file)
+      line_length = length(lines[1])
+
+      last_non_s_col = 1
+
+      for i in range(1, line_length)
+        for j in range(1, NUM_ROWS)
+          char = lines[j][i]
+          if (char != "-")
+            entry = tablature[last_non_s_col, j]
+            async_set(entry, string(char))
+          end
+        end
+        last_non_s_col = last_non_s_col + 1
+      end
+      counter = 1
+      for i in range(1, stop=length(lines[NUM_ROWS+1]), step=2)
+        tempo_button = tablature[counter, NUM_ROWS+1]
+        counter = counter + 1
+        set_gtk_property!(tempo_button, :label, string(lines[NUM_ROWS+1][i]))
+      end
+    end
+  end
 
   set_gtk_property!(tab_scroll, :hscrollbar_policy, Gtk.GtkPolicyType.ALWAYS)
   set_gtk_property!(tab_scroll, :vscrollbar_policy, Gtk.GtkPolicyType.NEVER)
@@ -423,79 +464,86 @@ function create_synth_window()
 end
 
 function create_transcriber_window()
+
+  # Regular variables
+  S = 44100
+  N = 1024
+  maxtime = 1000
+  recording = false
+  nsample = 0
+  song = Float32[]
+  reproduction_speed = 1
+
+  # Layout
   win = GtkWindow("Transcriber", 400, 400)
   vbox = GtkBox(:v)
   hbox = styled(GtkBox(:h), "header-box")
+  play_hbox = GtkBox(:h)
+  footer = GtkBox(:h)
+  scroll_view = styled(GtkScrolledWindow(), "scroll-window")
+  set_gtk_property!(scroll_view, :hscrollbar_policy, Gtk.GtkPolicyType.ALWAYS)
+  set_gtk_property!(scroll_view, :vscrollbar_policy, Gtk.GtkPolicyType.NEVER)
+  tab = styled(GtkGrid(), "grid")
+  set_gtk_property!(tab, :row_spacing, 5)
+  set_gtk_property!(tab, :column_spacing, 5)
+
+  # Elements
   header = styled(GtkLabel("Transcriber"), "header")
   back_button = styled(GtkButton("Back"), "export-button")
-
-  # record_button = styled(GtkButton("Record"), "export-button")
-
-  play_hbox = GtkBox(:h)
-  # pause_button = styled(GtkButton("Pause"), "export-button")
-  # save_button = styled(GtkButton("Save"), "export-button")
   import_button = styled(GtkButton("Import"), "export-button")
-
-  recording = false
-
-  # g = GtkGrid()
-  # set_gtk_property!(g, :column_spacing, 10)
-  # set_gtk_property!(g, :row_homogeneous, true)
-  # set_gtk_property!(g, :column_homogeneous, true)
-
-  S = 44100 # Sampling rate (samples/second)
-  N = 1024 # Buffer length
-  maxtime = 1000 # Maximum recording time in seconds (for demo)
-  global recording = false # Flag
-  nsample = 0 # Count number of samples recorded
-  song = Float32[] # Initialize "song" as an empty array
-
   timer_label = styled(GtkLabel("0:00"), "header")
   record_button = styled(GtkButton("Record"), "export-button")
   stop_button = styled(GtkButton("Stop"), "export-button")
-  play_button = styled(GtkButton("Play"), "export-button")
+  play_recorded_button = styled(GtkButton("Play"), "export-button")
   export_button = styled(GtkButton("Export"), "export-button")
+  go_to_synth = styled(GtkButton("Synthesizer"), "export-button")
+  play_transcribed_button = styled(GtkButton("Play"), "export-button")
+  increase_tempo_button = styled(GtkButton("+"), "export-button")
+  decrease_tempo_button = styled(GtkButton("-"), "export-button")
+  tempo_label = styled(GtkLabel("1.0"), "header")
 
-  # new_record_button = make_button("Record", call_record, 1, "wr", "color:white; background:red;")
-  # new_stop_button = make_button("Stop", call_stop, 2, "yb", "color:yellow; background:blue;")
 
-
-  # Create buttons with callbacks, positions, and styles
+  # Functions and Callbacks
 
   function on_back_button_press(_)
     create_main_window()
     Gtk.destroy(win)
   end
 
-  # function on_record_button_press(_)
-  #   recording = !recording
-  #   if recording
-  #     set_gtk_property!(record_button, :label, "Stop")
-  #     push!(play_hbox, pause_button)
-  #     push!(play_hbox, save_button)
-  #     showall(win)
-  #   else
-  #     set_gtk_property!(record_button, :label, "Record")
-  #     delete!(play_hbox, pause_button)
-  #     delete!(play_hbox, save_button)
-  #     showall(win)
-  #   end
-  # end
-
   function on_import_button_press(_)
-    file = open_dialog_native("Pick a file", GtkNullContainer(), ("*.wav",))
-    main_transcriber(file)
-    println("Transcribed")
-    # set_gtk_property!(import_button, :label, file)
+    input = open_dialog_native("Pick a file", GtkNullContainer(), ("*.wav",))
+    main_transcriber(input)
+
+    file = "guitar_tab.txt"
+    if file != ""
+      lines = readlines(file)
+      line_length = length(lines[1])
+
+      for i in range(1, line_length)
+        for j in range(1, NUM_ROWS)
+          tab[i, j] = styled(GtkLabel(string(lines[j][i])), "input")
+        end
+      end
+      # counter = 1
+      # for i in range(1, stop=length(lines[NUM_ROWS+1]), step=2)
+      #   tempo_button = tab[counter, NUM_ROWS+1]
+      #   counter = counter + 1
+      #   set_gtk_property!(tempo_button, :label, string(lines[NUM_ROWS+1][i]))
+      # end
+      println("Transcribed")
+    else
+      println("No file selected")
+    end
+
+    push!(footer, play_transcribed_button)
+    push!(footer, go_to_synth)
+
+    push!(hbox, decrease_tempo_button)
+    push!(hbox, tempo_label)
+    push!(hbox, increase_tempo_button)
+
+    showall(win)
   end
-
-  # Initialize variables that are used throughout
-
-  # Initialize variables that are used throughout
-
-
-
-  # Callbacks
 
   function record_loop!(in_stream, buf)
     Niter = floor(Int, maxtime * S / N)
@@ -519,7 +567,7 @@ function create_transcriber_window()
     global song = Float32[] # Initialize "song" as an empty array
 
     delete!(play_hbox, record_button)
-    delete!(play_hbox, play_button)
+    delete!(play_hbox, play_recorded_button)
     delete!(play_hbox, export_button)
     push!(play_hbox, stop_button)
     push!(play_hbox, timer_label)
@@ -564,7 +612,7 @@ function create_transcriber_window()
     global recording = false
     delete!(play_hbox, stop_button)
     push!(play_hbox, record_button)
-    push!(play_hbox, play_button)
+    push!(play_hbox, play_recorded_button)
     push!(play_hbox, export_button)
     showall(win)
     # new_play_button = make_button("Play", call_play, 3, "wg", "color:white; background:green;")
@@ -593,37 +641,126 @@ function create_transcriber_window()
     end
   end
 
+  function on_go_to_synth(_)
+    create_synth_window(true)
+    Gtk.destroy(win)
+  end
+
+  function asyncDo(cols)
+    state = MyState(nothing, 0)
+    state.task = Task(() -> asyncDoInner(state, cols))
+    schedule(state.task)
+    return state
+  end
+
+  function asyncDoInner(state::MyState, cols)
+    for i = 1:(cols*20*(1/reproduction_speed))
+      hadj = get_gtk_property(scroll_view, :hadjustment, GtkAdjustment)
+      set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 1.8 * reproduction_speed)
+      # print(i)
+      state.someCounter = i
+      sleep(0.01) # I think the yield suffices
+      yield()
+    end
+  end
+
+  # the following function is the callback that is invoked called by signal_connect
+  # function on_button_clicked(w)
+
+  # end
+
+  function on_play_transcribed_button_press(_)
+    cols = length(readlines("guitar_tab_Concise.txt")[1])
+
+    @async begin
+      main_synthesizer_withDurations("guitar_tab_Concise.txt", reproduction_speed)
+    end
 
 
+    @async begin
+      hadj = get_gtk_property(scroll_view, :hadjustment, GtkAdjustment)
+      set_gtk_property!(hadj, :value, 0)
+      sleep(0.8 * (1 / reproduction_speed))
+      state = asyncDo(cols)
+      timer = nothing
+      function update(::Timer)
+        if Base.istaskfailed(state.task)
+          close(timer)
+          error("something is wrong")
+          return
+        end
+        # Here the UI should be update. Access state.someCounter to get the progress
+        if istaskdone(state.task)
+          close(timer)
+        end
+        return
+      end
+      timer = Timer(update, 0.0, interval=0.1)
+    end
 
-  # g[1, 1] = new_record_button
-  push!(play_hbox, record_button)
-  # push!(play_hbox, stop_button)
-  # push!(play_hbox, play_button)
-  # push!(play_hbox, export_button)
-  # g[3, 1] = new_play_button
-  # g[4, 1] = new_export_button
+    return
+    # print("1")
+    # Threads.@spawn begin
+    #   for i = 1:100
+    #     # print("2")
+    #     hadj = get_gtk_property(scroll_view, :hadjustment, GtkAdjustment)
+    #     # print("3")
+    #     Gtk.GLib.g_idle_add() do
+    #       # print("4")
+    #       set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 1)
+    #       # print("5")
+    #       sleep(0.01)
+    #       yield()
+    #       Cint(false)
+    #     end
+    #     # set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 1)
+    #     # sleep(0.01)
+    #   end
+    # end
+  end
 
-  # push!(win, g) # Add grid to window
-  # showall(win) # Display the window with all buttons
+  function on_increase_tempo_button_press(_)
+    curr_tempo = get_gtk_property(tempo_label, :label, String)
+    new_tempo = round(min(4, parse(Float16, curr_tempo) + 0.1), digits=1)
+    reproduction_speed = new_tempo
+    set_gtk_property!(tempo_label, :label, string(new_tempo))
+    if (reproduction_speed >= 4) # Max tempo
+      return
+    end
+  end
 
+  function on_decrease_tempo_button_press(_)
+    curr_tempo = get_gtk_property(tempo_label, :label, String)
+    new_tempo = round(max(0.1, parse(Float16, curr_tempo) - 0.1), digits=1)
+    reproduction_speed = new_tempo
+    set_gtk_property!(tempo_label, :label, string(new_tempo))
+  end
+
+  # Connect signals
+  signal_connect(on_increase_tempo_button_press, increase_tempo_button, "clicked")
+  signal_connect(on_decrease_tempo_button_press, decrease_tempo_button, "clicked")
   signal_connect(call_record, record_button, "clicked")
   signal_connect(call_stop, stop_button, "clicked")
-  signal_connect(call_play, play_button, "clicked")
+  signal_connect(call_play, play_recorded_button, "clicked")
   signal_connect(call_export, export_button, "clicked")
-
   signal_connect(on_import_button_press, import_button, "clicked")
-  # signal_connect(on_record_button_press, record_button, "clicked")
   signal_connect(on_back_button_press, back_button, "clicked")
+  signal_connect(on_go_to_synth, go_to_synth, "clicked")
+  signal_connect(on_play_transcribed_button_press, play_transcribed_button, "clicked")
 
+
+  # Add to layout
+  push!(play_hbox, record_button)
   push!(hbox, header)
   push!(hbox, back_button)
   push!(vbox, hbox)
   push!(vbox, import_button)
-  # push!(play_hbox, record_button)
   push!(vbox, play_hbox)
-  # push!(vbox, g)
+  push!(scroll_view, tab)
+  push!(vbox, scroll_view)
+  push!(vbox, footer)
   push!(win, vbox)
+
   showall(win)
 end
 
