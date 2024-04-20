@@ -147,7 +147,7 @@ function parse_guitar_tab_by_columns_withDurations(tab::String)
         fret = parse(Int, line[col_idx])  # Fret number
         base_pos = base_positions[string_idx]
         npos = base_pos + fret  # Calculate note position
-        duration = 0.1 * durations[current_duration_idx]
+        duration = durations[current_duration_idx]
         push!(songs, (npos, duration))
       end
     end

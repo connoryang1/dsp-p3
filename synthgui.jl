@@ -12,30 +12,61 @@ styles = GtkCssProvider(data="
     font-family: Tahoma;
   }
   #header {
-    padding: 5px;
-    font-size: 20px;
+    padding: 10px;
     margin: 10px;
+    font-size: 30px;
     font-weight: bold;
+    color: white;
   }
-  #export-button {
+  #timer-label {
+    padding: 10px;
+    margin: 10px;
+    font-size: 30px;
+    font-weight: bold;
+    color: black;
+  }
+  #header-box {
+    background: #00274C;
+  }
+  #tempo-label {
     padding: 5px;
     font-size: 20px;
     margin: 10px;
     background: transparent;
+    color: white;
+  }
+  #export-button {
+    margin: 10px;
+    margin-bottom: 10px;
+    margin-top: 10px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 20px;
+    background: white;
+    color: black;
+    outline: none;
+    box-shadow: none;
+    text-shadow: none;
+    border-radius: 5px;
+    border-color: black;
+    border-width: 2px;
   }
   #wrap-button {
     padding: 10px;
     font-size: 15px;
     margin: 5px;
-    background: transparent;
+    background: #00274C;
+    color: white;
   }
   #note {
-    padding: 5px 15px 5px 5px;
-    font-size: 25px;
+    padding: 5px 0px 5px 5px;
+    margin-left: 20px;
+    font-size: 20px;
     font-weight: bold;
   }
   #input {
-    background: transparent;
     font-size: 20px;
     border: none;
     border-radius: 0;
@@ -47,15 +78,38 @@ styles = GtkCssProvider(data="
   #tempo-button {
     padding: 3px;
     font-size: 20px;
-    background: transparent;
+    background: #00274C;
+    color: white;
     border-radius: 0;
-    border: none;
+    border-color: white;
+    border-width: 1px;
   }
   #header-box {
   }
   #grid {
     padding: 20px;
+    padding-left: 5px;
   }
+  #text-view {
+    font-size: 20px;
+    padding: 10px;
+    margin: 10px;
+    font-family: Courier New;
+  }
+  #separator {
+    border-top: 2px solid #00274C;
+    padding: 0;
+    margin-bottom: 0;
+    margin-top: 10;
+    margin-left: 15;
+    margin-right: 15;
+  }
+  #footer {
+    background: white;
+    padding: 10px;
+    padding-bottom: 15px;
+  }
+
 ")
 
 mutable struct MyState
@@ -94,7 +148,7 @@ function create_main_window()
   transcriber = styled(GtkButton("Transcriber"), "export-button")
   synthesizer = styled(GtkButton("Synthesizer"), "export-button")
   hbox_main = GtkBox(:h)
-  g_main = GtkGrid()
+  g_main = styled(GtkGrid(), "footer")
   set_gtk_property!(g_main, :row_spacing, 5)
   set_gtk_property!(g_main, :column_spacing, 5)
   set_gtk_property!(g_main, :row_homogeneous, true)
@@ -124,6 +178,7 @@ function create_synth_window(from_transcriber)
 
   playing = false
   reproduction_speed = 1
+  with_duration = true
 
   header = styled(GtkLabel("Synthesizer"), "header")
   import_button = styled(GtkButton("Import"), "export-button")
@@ -134,13 +189,23 @@ function create_synth_window(from_transcriber)
   clear_button = styled(GtkButton("Clear"), "export-button")
   increase_tempo_button = styled(GtkButton("+"), "export-button")
   decrease_tempo_button = styled(GtkButton("-"), "export-button")
-  tempo_label = styled(GtkLabel("1.0"), "header")
+  tempo_label = styled(GtkLabel("10"), "tempo-label")
   tablature = styled(GtkGrid(), "grid")
   note_labels = styled(GtkGrid(), "grid")
   sidebar = styled(GtkBox(:v), "sidebar")
   tab_scroll = styled(GtkScrolledWindow(), "scroll-window")
   # history_scroll = styled(GtkScrolledWindow(), "scroll-window")
   # history_list = GtkListStore
+  play_tab_button = styled(GtkButton("Play"), "export-button")
+  input_tab_buffer = GtkTextBuffer()
+  input_tab_area = styled(GtkTextView(input_tab_buffer), "text-view")
+  input_tab_vbox = styled(GtkBox(:v), "text-view")
+  set_gtk_property!(input_tab_area, :height_request, 180)
+  # set_gtk_property!(input_tab_area, :max_content_height, 6)
+  with_duration_button = styled(GtkButton("With durations"), "export-button")
+  header_grid = styled(GtkGrid(), "grid")
+  separator = styled(GtkLabel("                                                      "), "separator")
+
 
   notes = ["e", "B", "G", "D", "A", "E"]
 
@@ -366,7 +431,7 @@ function create_synth_window(from_transcriber)
 
   function on_increase_tempo_button_press(_)
     curr_tempo = get_gtk_property(tempo_label, :label, String)
-    new_tempo = round(min(4, parse(Float16, curr_tempo) + 0.1), digits=1)
+    new_tempo = min(20, parse(Int, curr_tempo) + 1)
     reproduction_speed = new_tempo
     set_gtk_property!(tempo_label, :label, string(new_tempo))
     if (reproduction_speed >= 4) # Max tempo
@@ -376,11 +441,58 @@ function create_synth_window(from_transcriber)
 
   function on_decrease_tempo_button_press(_)
     curr_tempo = get_gtk_property(tempo_label, :label, String)
-    new_tempo = round(max(0.1, parse(Float16, curr_tempo) - 0.1), digits=1)
+    new_tempo = max(1, parse(Int, curr_tempo) - 1)
     reproduction_speed = new_tempo
     set_gtk_property!(tempo_label, :label, string(new_tempo))
   end
 
+  is_play_button_visible = false
+  function on_enter_text_into_tab(_, event)
+
+    text = get_gtk_property(input_tab_buffer, :text, String)
+    if !is_play_button_visible && text != "" #&&
+      #  length(split(text, "\n")) == 7
+      # push!(hbox, decrease_tempo_button)
+      # push!(hbox, tempo_label)
+      # push!(hbox, increase_tempo_button)
+      push!(input_tab_vbox, play_tab_button)
+      showall(synth_win)
+      is_play_button_visible = true
+    end
+
+    # if length(split(text, "\n")) > 7
+    #   set_gtk_property!(input_tab_buffer, :text, join(split(text, "\n")[1:7], "\n"))
+    # elseif length(split(text, "\n")) == 7 && event.keyval == 65293
+    #   set_gtk_property!(input_tab_buffer, :text, join(split(text, "\n")[1:7], "\n"))
+    # end
+  end
+
+  function on_click_play_tab_button(_)
+    reproduction_speed = parse(Int, get_gtk_property(tempo_label, :label, String))
+    text = get_gtk_property(input_tab_buffer, :text, String)
+    write("asdf.txt", text)
+
+    if with_duration
+      main_synthesizer_withDurations("asdf.txt", reproduction_speed)
+    else
+      main_synthesizer_noDurations("asdf.txt", reproduction_speed / 10)
+    end
+  end
+
+  function on_click_with_duration_button(_)
+    with_duration = !with_duration
+    if with_duration
+      set_gtk_property!(with_duration_button, :label, "With durations")
+    else
+      set_gtk_property!(with_duration_button, :label, "Without durations")
+    end
+  end
+
+
+  # Connect signals
+  signal_connect(on_click_with_duration_button, with_duration_button, "clicked")
+  signal_connect(on_click_play_tab_button, play_tab_button, "clicked")
+  signal_connect(on_enter_text_into_tab, input_tab_area, "key-press-event")
   signal_connect(on_increase_tempo_button_press, increase_tempo_button, "clicked")
   signal_connect(on_decrease_tempo_button_press, decrease_tempo_button, "clicked")
   signal_connect(on_import_button_press, import_button, "clicked")
@@ -392,7 +504,7 @@ function create_synth_window(from_transcriber)
 
   synth_win = GtkWindow("", 400, 400)
   vbox = GtkBox(:v)
-  header_box = GtkBox(:h)
+  header_box = styled(GtkBox(:h), "header-box")
   buttons_vbox = GtkBox(:v)
   entire_hbox = GtkBox(:h)
 
@@ -441,14 +553,26 @@ function create_synth_window(from_transcriber)
 
   set_gtk_property!(tablature, :row_spacing, 5)
 
-  push!(header_box, header)
-  push!(header_box, back_button)
-  push!(header_box, clear_button)
-  push!(header_box, wrap_button)
-  push!(header_box, decrease_tempo_button)
-  push!(header_box, tempo_label)
-  push!(header_box, increase_tempo_button)
+
+
+  # header_grid[1, 1] = header
+  header_grid[1, 1] = back_button
+  header_grid[2, 1] = clear_button
+  header_grid[3, 1] = wrap_button
+  header_grid[4, 1] = decrease_tempo_button
+  header_grid[5, 1] = tempo_label
+  header_grid[6, 1] = increase_tempo_button
+
+  # push!(header_grid, header)
+  # push!(header_box, back_button)
+  # push!(header_box, clear_button)
+  # push!(header_box, wrap_button)
+  # push!(header_box, decrease_tempo_button)
+  # push!(header_box, tempo_label)
+  # push!(header_box, increase_tempo_button)
   # push!(header_box, spinner)
+  push!(header_box, header)
+  push!(header_box, header_grid)
   push!(vbox, header_box)
   push!(buttons_vbox, import_button)
   push!(buttons_vbox, export_button)
@@ -459,6 +583,10 @@ function create_synth_window(from_transcriber)
   push!(entire_hbox, tab_scroll)
   push!(entire_hbox, sidebar)
   push!(vbox, entire_hbox)
+  push!(vbox, separator)
+  push!(input_tab_vbox, with_duration_button)
+  push!(input_tab_vbox, input_tab_area)
+  push!(vbox, input_tab_vbox)
   push!(synth_win, vbox)
   showall(synth_win)
 end
@@ -472,26 +600,27 @@ function create_transcriber_window()
   recording = false
   nsample = 0
   song = Float32[]
-  reproduction_speed = 1
+  reproduction_speed = 10
 
   # Layout
   win = GtkWindow("Transcriber", 400, 400)
   vbox = GtkBox(:v)
   hbox = styled(GtkBox(:h), "header-box")
   play_hbox = GtkBox(:h)
-  footer = GtkBox(:h)
+  footer = styled(GtkBox(:h), "")
   scroll_view = styled(GtkScrolledWindow(), "scroll-window")
   set_gtk_property!(scroll_view, :hscrollbar_policy, Gtk.GtkPolicyType.ALWAYS)
   set_gtk_property!(scroll_view, :vscrollbar_policy, Gtk.GtkPolicyType.NEVER)
   tab = styled(GtkGrid(), "grid")
   set_gtk_property!(tab, :row_spacing, 5)
   set_gtk_property!(tab, :column_spacing, 5)
+  input_tab_vbox = GtkBox(:v)
 
   # Elements
   header = styled(GtkLabel("Transcriber"), "header")
   back_button = styled(GtkButton("Back"), "export-button")
   import_button = styled(GtkButton("Import"), "export-button")
-  timer_label = styled(GtkLabel("0:00"), "header")
+  timer_label = styled(GtkLabel("0:00"), "timer-label")
   record_button = styled(GtkButton("Record"), "export-button")
   stop_button = styled(GtkButton("Stop"), "export-button")
   play_recorded_button = styled(GtkButton("Play"), "export-button")
@@ -500,7 +629,7 @@ function create_transcriber_window()
   play_transcribed_button = styled(GtkButton("Play"), "export-button")
   increase_tempo_button = styled(GtkButton("+"), "export-button")
   decrease_tempo_button = styled(GtkButton("-"), "export-button")
-  tempo_label = styled(GtkLabel("1.0"), "header")
+  tempo_label = styled(GtkLabel("10"), "header")
 
 
   # Functions and Callbacks
@@ -690,9 +819,9 @@ function create_transcriber_window()
   end
 
   function asyncDoInner(state::MyState, cols)
-    for i = 1:(cols*20*(1/reproduction_speed))
+    for i = 1:(cols*200*(1/reproduction_speed))
       hadj = get_gtk_property(scroll_view, :hadjustment, GtkAdjustment)
-      set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 1.8 * reproduction_speed)
+      set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 0.18 * reproduction_speed)
       # print(i)
       state.someCounter = i
       sleep(0.01) # I think the yield suffices
@@ -716,7 +845,7 @@ function create_transcriber_window()
     @async begin
       hadj = get_gtk_property(scroll_view, :hadjustment, GtkAdjustment)
       set_gtk_property!(hadj, :value, 0)
-      sleep(0.8 * (1 / reproduction_speed))
+      sleep(5 * (1 / reproduction_speed))
       state = asyncDo(cols)
       timer = nothing
       function update(::Timer)
@@ -757,7 +886,7 @@ function create_transcriber_window()
 
   function on_increase_tempo_button_press(_)
     curr_tempo = get_gtk_property(tempo_label, :label, String)
-    new_tempo = round(min(4, parse(Float16, curr_tempo) + 0.1), digits=1)
+    new_tempo = min(20, parse(Int, curr_tempo) + 1)
     reproduction_speed = new_tempo
     set_gtk_property!(tempo_label, :label, string(new_tempo))
     if (reproduction_speed >= 4) # Max tempo
@@ -767,12 +896,11 @@ function create_transcriber_window()
 
   function on_decrease_tempo_button_press(_)
     curr_tempo = get_gtk_property(tempo_label, :label, String)
-    new_tempo = round(max(0.1, parse(Float16, curr_tempo) - 0.1), digits=1)
+    new_tempo = max(1, parse(Int, curr_tempo) - 1)
     reproduction_speed = new_tempo
     set_gtk_property!(tempo_label, :label, string(new_tempo))
   end
 
-  # Connect signals
   signal_connect(on_increase_tempo_button_press, increase_tempo_button, "clicked")
   signal_connect(on_decrease_tempo_button_press, decrease_tempo_button, "clicked")
   signal_connect(call_record, record_button, "clicked")
@@ -789,8 +917,10 @@ function create_transcriber_window()
   push!(play_hbox, record_button)
   push!(hbox, header)
   push!(hbox, back_button)
+  push!(hbox, import_button)
+  # push!(input_tab_vbox, input_tab_area)
   push!(vbox, hbox)
-  push!(vbox, import_button)
+  # push!(vbox, input_tab_vbox)
   push!(vbox, play_hbox)
   push!(scroll_view, tab)
   push!(vbox, scroll_view)
