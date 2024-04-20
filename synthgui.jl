@@ -495,7 +495,7 @@ function create_transcriber_window()
   record_button = styled(GtkButton("Record"), "export-button")
   stop_button = styled(GtkButton("Stop"), "export-button")
   play_recorded_button = styled(GtkButton("Play"), "export-button")
-  export_button = styled(GtkButton("Export"), "export-button")
+  export_button = styled(GtkButton("Transcribe"), "export-button")
   go_to_synth = styled(GtkButton("Synthesizer"), "export-button")
   play_transcribed_button = styled(GtkButton("Play"), "export-button")
   increase_tempo_button = styled(GtkButton("+"), "export-button")
@@ -560,7 +560,7 @@ function create_transcriber_window()
   end
 
   function call_record(w)
-    global recording = true
+    recording = true
 
     # Threads.@spawn begin
     global nsample = 0 # Count number of samples recorded
@@ -610,7 +610,7 @@ function create_transcriber_window()
   end
 
   function call_stop(w)
-    global recording = false
+    recording = false
     delete!(play_hbox, stop_button)
     push!(play_hbox, record_button)
     push!(play_hbox, play_recorded_button)
@@ -634,12 +634,47 @@ function create_transcriber_window()
   end
 
   function call_export(w)
-    save_file = save_dialog_native("Save file", GtkNullContainer(), ("*.wav",))
+    # save_file = save_dialog_native("Save file", GtkNullContainer(), ("*.wav",))
+
+    save_file = "recordedFromComputer.wav"
 
     if (save_file != "")
       println("Exporting to $save_file")
       wavwrite(song, save_file, Fs=S)
     end
+
+    input = "recordedFromComputer.wav"
+    main_transcriber(input)
+
+    file = "guitar_tab.txt"
+    if file != ""
+      lines = readlines(file)
+      line_length = length(lines[1])
+
+      for i in range(1, line_length)
+        for j in range(1, NUM_ROWS)
+          tab[i, j] = styled(GtkLabel(string(lines[j][i])), "input")
+        end
+      end
+      # counter = 1
+      # for i in range(1, stop=length(lines[NUM_ROWS+1]), step=2)
+      #   tempo_button = tab[counter, NUM_ROWS+1]
+      #   counter = counter + 1
+      #   set_gtk_property!(tempo_button, :label, string(lines[NUM_ROWS+1][i]))
+      # end
+      println("Transcribed")
+    else
+      println("No file selected")
+    end
+
+    push!(footer, play_transcribed_button)
+    push!(footer, go_to_synth)
+
+    push!(hbox, decrease_tempo_button)
+    push!(hbox, tempo_label)
+    push!(hbox, increase_tempo_button)
+
+    showall(win)
   end
 
   function on_go_to_synth(_)
