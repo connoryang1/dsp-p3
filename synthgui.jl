@@ -177,7 +177,7 @@ end
 function create_synth_window(from_transcriber)
 
   playing = false
-  reproduction_speed = 1
+  reproduction_speed = 10
   with_duration = true
 
   header = styled(GtkLabel("Synthesizer"), "header")
