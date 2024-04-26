@@ -143,7 +143,7 @@ function create_main_window()
   win = GtkWindow("Home")
   set_gtk_property!(win, :window_position, Gtk.GtkWindowPosition.CENTER)
   vbox_main = GtkBox(:v)
-  image = GtkImage("logo2.png")
+  image = GtkImage("logo.png")
 
   transcriber = styled(GtkButton("Transcriber"), "export-button")
   synthesizer = styled(GtkButton("Synthesizer"), "export-button")
