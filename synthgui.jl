@@ -378,11 +378,7 @@ function create_synth_window(from_transcriber)
       for j in range(1, NUM_COLS)
         local entry = tablature[j, i]
         text = get_gtk_property(entry, :text, String)
-        # text = (text == "") ?
-        #        repeat("-", parse(Int, get_gtk_property(tablature[j, NUM_ROWS+1], :label, String))) :
-        #        text * repeat("s", parse(Int, get_gtk_property(tablature[j, NUM_ROWS+1], :label, String)) - 1)
         text = (text == "") ? "-" : text
-        # text = text * repeat("s", parse(Int, get_gtk_property(tablature[j, NUM_ROWS+1], :label, String)) - 1)
         output = string(output, text)
       end
       output = string(output, "\n")
@@ -395,9 +391,7 @@ function create_synth_window(from_transcriber)
 
     write(string("output.txt"), output)
 
-    # Threads.@spawn begin
     main_synthesizer_withDurations(string("output.txt"), reproduction_speed)
-    # end
 
   end
 
@@ -451,26 +445,17 @@ function create_synth_window(from_transcriber)
 
     text = get_gtk_property(input_tab_buffer, :text, String)
     if !is_play_button_visible && text != "" #&&
-      #  length(split(text, "\n")) == 7
-      # push!(hbox, decrease_tempo_button)
-      # push!(hbox, tempo_label)
-      # push!(hbox, increase_tempo_button)
       push!(input_tab_vbox, play_tab_button)
       showall(synth_win)
       is_play_button_visible = true
     end
 
-    # if length(split(text, "\n")) > 7
-    #   set_gtk_property!(input_tab_buffer, :text, join(split(text, "\n")[1:7], "\n"))
-    # elseif length(split(text, "\n")) == 7 && event.keyval == 65293
-    #   set_gtk_property!(input_tab_buffer, :text, join(split(text, "\n")[1:7], "\n"))
-    # end
   end
 
   function on_click_play_tab_button(_)
     reproduction_speed = parse(Int, get_gtk_property(tempo_label, :label, String))
     text = get_gtk_property(input_tab_buffer, :text, String)
-    write("asdf.txt", text)
+    write("asdf.txt", text) # Temp file name for exporting tablature before playing
 
     if with_duration
       main_synthesizer_withDurations("asdf.txt", reproduction_speed)
@@ -510,17 +495,6 @@ function create_synth_window(from_transcriber)
 
   if (from_transcriber)
     file = "guitar_tab_Concise.txt"
-
-    # for i in range(1, NUM_ROWS)
-    #   for j in range(1, NUM_COLS)
-    #     entry = tablature[j, i]
-    #     async_set(entry, "")
-    #   end
-    # end
-    # for i in range(1, NUM_COLS)
-    #   tempo_button = tablature[i, NUM_ROWS+1]
-    #   set_gtk_property!(tempo_button, :label, "1")
-    # end
 
     if file != ""
       lines = readlines(file)
