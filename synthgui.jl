@@ -607,7 +607,6 @@ function create_transcriber_window()
 
 
   # Functions and Callbacks
-
   function on_back_button_press(_)
     create_main_window()
     Gtk.destroy(win)
@@ -627,12 +626,6 @@ function create_transcriber_window()
           tab[i, j] = styled(GtkLabel(string(lines[j][i])), "input")
         end
       end
-      # counter = 1
-      # for i in range(1, stop=length(lines[NUM_ROWS+1]), step=2)
-      #   tempo_button = tab[counter, NUM_ROWS+1]
-      #   counter = counter + 1
-      #   set_gtk_property!(tempo_button, :label, string(lines[NUM_ROWS+1][i]))
-      # end
       println("Transcribed")
     else
       println("No file selected")
@@ -640,7 +633,6 @@ function create_transcriber_window()
 
     push!(footer, play_transcribed_button)
     push!(footer, go_to_synth)
-
     push!(hbox, decrease_tempo_button)
     push!(hbox, tempo_label)
     push!(hbox, increase_tempo_button)
@@ -665,7 +657,6 @@ function create_transcriber_window()
   function call_record(w)
     recording = true
 
-    # Threads.@spawn begin
     global nsample = 0 # Count number of samples recorded
     global song = Float32[] # Initialize "song" as an empty array
     set_gtk_property!(timer_label, :label, "0:00")
@@ -688,9 +679,7 @@ function create_transcriber_window()
     Threads.@spawn begin
       while recording == true
         sleep(1)
-        # println("asjdflkajflkasdjfsalkaskjfd")
         curr_time = get_gtk_property(timer_label, :label, String)
-        # println(curr_time)
         curr_time = split(curr_time, ":")
         minutes = parse(Int, curr_time[1])
         seconds = parse(Int, curr_time[2])
@@ -719,10 +708,6 @@ function create_transcriber_window()
     push!(play_hbox, play_recorded_button)
     push!(play_hbox, export_button)
     showall(win)
-    # new_play_button = make_button("Play", call_play, 3, "wg", "color:white; background:green;")
-    # new_export_button = make_button("Export", call_export, 4, "yb", "color:yellow; background:black;")
-    # g[3, 1] = new_play_button
-    # g[4, 1] = new_export_button
 
     sleep(0.1) # Ensure the async record loop finished
     duration = round(nsample / S, digits=2)
@@ -732,13 +717,11 @@ function create_transcriber_window()
   end
 
   function call_play(w)
-    # println("Playing recording.")
     @async sound(song, S) # Play the entire recording
   end
 
   function call_export(w)
     # save_file = save_dialog_native("Save file", GtkNullContainer(), ("*.wav",))
-
     save_file = "recordedFromComputer.wav"
 
     if (save_file != "")
@@ -759,12 +742,6 @@ function create_transcriber_window()
           tab[i, j] = styled(GtkLabel(string(lines[j][i])), "input")
         end
       end
-      # counter = 1
-      # for i in range(1, stop=length(lines[NUM_ROWS+1]), step=2)
-      #   tempo_button = tab[counter, NUM_ROWS+1]
-      #   counter = counter + 1
-      #   set_gtk_property!(tempo_button, :label, string(lines[NUM_ROWS+1][i]))
-      # end
       println("Transcribed")
     else
       println("No file selected")
@@ -796,17 +773,11 @@ function create_transcriber_window()
     for i = 1:(cols*200*(1/reproduction_speed))
       hadj = get_gtk_property(scroll_view, :hadjustment, GtkAdjustment)
       set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 0.18 * reproduction_speed)
-      # print(i)
       state.someCounter = i
       sleep(0.01) # I think the yield suffices
       yield()
     end
   end
-
-  # the following function is the callback that is invoked called by signal_connect
-  # function on_button_clicked(w)
-
-  # end
 
   function on_play_transcribed_button_press(_)
     cols = length(readlines("guitar_tab_Concise.txt")[1])
@@ -838,24 +809,6 @@ function create_transcriber_window()
     end
 
     return
-    # print("1")
-    # Threads.@spawn begin
-    #   for i = 1:100
-    #     # print("2")
-    #     hadj = get_gtk_property(scroll_view, :hadjustment, GtkAdjustment)
-    #     # print("3")
-    #     Gtk.GLib.g_idle_add() do
-    #       # print("4")
-    #       set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 1)
-    #       # print("5")
-    #       sleep(0.01)
-    #       yield()
-    #       Cint(false)
-    #     end
-    #     # set_gtk_property!(hadj, :value, get_gtk_property(hadj, :value, Float64) + 1)
-    #     # sleep(0.01)
-    #   end
-    # end
   end
 
   function on_increase_tempo_button_press(_)
@@ -892,9 +845,7 @@ function create_transcriber_window()
   push!(hbox, header)
   push!(hbox, back_button)
   push!(hbox, import_button)
-  # push!(input_tab_vbox, input_tab_area)
   push!(vbox, hbox)
-  # push!(vbox, input_tab_vbox)
   push!(vbox, play_hbox)
   push!(scroll_view, tab)
   push!(vbox, scroll_view)

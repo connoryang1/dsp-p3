@@ -56,41 +56,29 @@ function play_npos(song) #song is ((npos, duration),(..,...),(..,..))
 
     # Select amplitudes and envelope based on npos
     if npos in 0:4
-      # amplitudes = amplitudes_list[6]
-      # envelope = envelopes_list[6]
-
       amplitudes = amplitudes_list[a]
       envelope = envelopes_list[a]
+
     elseif npos in 5:9
-      # amplitudes = amplitudes_list[5]
-      # envelope = envelopes_list[5]
-
       amplitudes = amplitudes_list[a]
       envelope = envelopes_list[a]
+
     elseif npos in 10:14
-      # amplitudes = amplitudes_list[4]
-      # envelope = envelopes_list[4]
-
       amplitudes = amplitudes_list[a]
       envelope = envelopes_list[a]
+
     elseif npos in 15:18
-      # amplitudes = amplitudes_list[3]
-      # envelope = envelopes_list[3]
-
       amplitudes = amplitudes_list[a]
       envelope = envelopes_list[a]
+
     elseif npos in 19:23
-      # amplitudes = amplitudes_list[2]
-      # envelope = envelopes_list[2]
-
       amplitudes = amplitudes_list[a]
       envelope = envelopes_list[a]
+
     elseif npos in 24:33
-      # amplitudes = amplitudes_list[1]
-      # envelope = envelopes_list[1]
-
       amplitudes = amplitudes_list[a]
       envelope = envelopes_list[a]
+
     else
       # Default case, if needed
       amplitudes = amplitudes_list[6]  # or some default value
@@ -103,14 +91,12 @@ function play_npos(song) #song is ((npos, duration),(..,...),(..,..))
     for (n, amplitude) in zip(harmonics, amplitudes)
       freq = fundamental * n
       x += amplitude * cos.(2 * pi * freq * (1:N) / S)
-      # println("Harmonic $n: Frequency = $freq Hz, Amplitude = $amplitude")
     end
     for i in 1:length(x)
       t = i / S
       x[i] = adsr_envelope(t, envelope..., duration) * x[i]
     end
     played_song = vcat(played_song, x)
-    # sound(2 .* result,S)
   end
   return played_song
 end
@@ -214,13 +200,9 @@ function scale_durations(notes, scale_factor)
 end
 
 function main_synthesizer_withDurations(textTabName, speed_factor)
-  # #will read the .txt and give us the tupples in [(.,.),(.,.)]
+  # Read the .txt and give us the tuples in [(.,.),(.,.)]
   song_list = read_and_parse_tab_withDurations(textTabName)
-  # println(song_list)
   song_tuples = convert_to_tuple_of_tuples(song_list)
-  # println("Converted tuple of tuples: ",song_tuples)
-  # c=2
-  # println(scale_durations(song_tuples,c))
 
   S = 44100 #default
   c = 1 / speed_factor
@@ -233,26 +215,15 @@ function main_synthesizer_withDurations(textTabName, speed_factor)
     println("Error during sound playback: ", e)
   end
 
-  # wavwrite(testAllNotes, "synthFromComputer.wav", Fs=S)
 end
 
 function main_synthesizer_noDurations(textTabName, speed_factor)
-  # #will read the .txt and give us the tupples in [(.,.),(.,.)]
   song_list = read_and_parse_tab_noDurations(textTabName)
-  # println(song_list)
   song_tuples = convert_to_tuple_of_tuples(song_list)
-  # println("Converted tuple of tuples: ",song_tuples)
-  # c=2
-  # println(scale_durations(song_tuples,c))
 
   S = 44100 #default
   c = 1 / speed_factor
   final_song_tuples = scale_durations(song_tuples, c)
   x_2 = play_npos(final_song_tuples)
   sound(x_2, S)
-  # wavwrite(testAllNotes, "synthFromComputer.wav", Fs=S)
 end
-
-# reproduction_speed = 0.64
-# main_synthesizer_withDurations("guitar_tab_Concise.txt", reproduction_speed) #for the w/ durations option
-# main_synthesizer_noDurations("guitar_tab_Concise.txt",reproduction_speed) #for the w/o durations option

@@ -2,12 +2,9 @@ using WAV
 using FFTW
 using Plots
 using MAT
-# plotlyjs()
-# using Pkg
-# Pkg.add(PackageSpec(name="Kaleido_jll", version="0.1"))
 
 function envelope(x; w::Int=501)
-  h = (w - 1) ÷ 2 #sliding half-window (default 250 for the w=501)
+  h = (w - 1) ÷ 2 # Sliding half-window (default 250 for the w=501)
   x = abs.(x)
   avg(v) = sum(v) / length(v)
   return [avg(x[max(n - h, 1):min(n + h, end)]) for n in 1:length(x)]
@@ -25,10 +22,10 @@ function find_durations(envelope, threshold::Float64=0.10)
       if signal_val > threshold && note_attack_time == -1
         note_attack_time = t
       elseif signal_val < threshold && note_attack_time != -1
-        note_release_time = t #remember that all these are in index dimension, not time.
+        note_release_time = t # Remember that all these are in index dimension, not time.
         push!(durations, (note_release_time - note_attack_time, note_attack_time, note_release_time))
-        note_attack_time = -1 #so notes will note dettect any release time after the true end
-        skip = t + 3500 #adjust as needed
+        note_attack_time = -1 # So notes will note dettect any release time after the true end
+        skip = t + 3500 # Adjust as needed
       end
     end
   end
@@ -46,8 +43,8 @@ end
 function hps_note2fundamental(note, S)
   X = fft(note)
   N = length(note)
-  c = 9 #more than this does not work.
-  M = min(N ÷ c, length(X))  # using FIVE copies for the HPS, IT WORKS
+  c = 9 # More than this does not work.
+  M = min(N ÷ c, length(X))  # Using FIVE copies for the HPS, IT WORKS
   X_mag = abs.(X)
 
   hps = X_mag[1:M]
@@ -93,8 +90,6 @@ function wav2tuples(file)
     closest_f = find_closestGuitarFreq(f, freqs)
     npos = freq2npos(closest_f)
     push!(song_array, [npos, durations[i][1], durations[i][2]]) #npos, duration, attack-time
-    # println("($npos, $(durations[i][1]), $(durations[i][2])) \n")
-    # println("$(npos)")
   end
   return song_array, S
 end
@@ -200,10 +195,4 @@ function main_transcriber(file)
     end
   end
 
-  # println("Saved guitar tab to $filename")
 end
-# main_transcriber("60 50 40 30 20 10.wav")
-# main_transcriber("Cartolinha.wav")
-# main_transcriber("guitarSampleForTest.wav")
-# main_transcriber("guitarFromComputer.wav")
-# main_transcriber("Bam bam bam baaaan.wav")
