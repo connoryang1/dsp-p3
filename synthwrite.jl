@@ -1,9 +1,7 @@
 using WAV
-# using Plots
 using MAT
 using Sound
 using FFTW
-# plotlyjs()
 
 function adsr_envelope(t, attack_time, decay_time, sustain_level, release_time, total_duration)
   sustain_decay_rate = 3.5  # Hardcoded decay rate for the sustain phase
