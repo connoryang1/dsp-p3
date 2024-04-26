@@ -7,9 +7,14 @@ Developed by: Adam Baydoun, Yagho Grossi, and Connor Yang
 
 ## Run instructions
 
+**Note:** each of the code blocks are duplicated to provide an easily copy-pastable version. Running them twice is not necessary.
+
 This program requires multiple threads, unsupported by default Julia configurations. In order to run Julia with multiple threads, run:
 ```
 $ julia --threads 2
+```
+```
+julia --threads 2
 ```
 This should open the Julia interactive terminal. Install necessary packages:
 ```
@@ -21,9 +26,21 @@ julia> Pkg.add("FFTW")
 julia> Pkg.add("Dates")
 julia> Pkg.add("PortAudio")
 ```
+```
+using Pkg
+Pkg.add("WAV")
+Pkg.add("MAT")
+Pkg.add("Sound")
+Pkg.add("FFTW")
+Pkg.add("Dates")
+Pkg.add("PortAudio")
+```
 Once necessary packages are installed, run the program using:
 ```
 julia> include("synthgui.jl")
+```
+```
+include("synthgui.jl")
 ```
 
 ## File overview
