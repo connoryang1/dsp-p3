@@ -2,7 +2,7 @@
 
 ENGR 100-400 (Digital Signal Processing) - Project 3
 
-Developed by: Adam Baydoun, Yagho Grossi, and Connor Yang
+Oboe Group: Adam Baydoun, Yagho Grossi, and Connor Yang
 
 ## Run instructions
 
